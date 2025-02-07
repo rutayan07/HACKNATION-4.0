@@ -1,0 +1,23 @@
+#include <Servo.h>
+const int LDR1 = A0;
+const int LDR2 = A1;
+const int servoPin = 2;
+Servo myServo;
+void setup()
+ {
+  myServo.attach(servoPin);
+  myServo.write(90);
+}
+
+void loop() 
+{
+  int LDR1Value = analogRead(LDR1);
+  int LDR2Value = analogRead(LDR2);
+  int error = LDR1Value - LDR2Value;
+  if (abs(error) > 50) 
+{
+    int newPosition = map(error, -1023, 1023, 0, 180);
+    myServo.write(newPosition);
+  }
+  delay(500);
+}
