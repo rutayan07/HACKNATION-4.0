@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BatteryCharging, Clock, CreditCard, Phone } from 'lucide-react';
+import { BatteryCharging, Clock, CreditCard, Phone, Zap, Thermometer, Power, AlertOctagon } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
 function App() {
@@ -8,6 +8,8 @@ function App() {
   const [isCharging, setIsCharging] = useState(false);
   const [cost, setCost] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<number>(0);
+
 
   useEffect(() => {
     const subscription = supabase
@@ -24,6 +26,7 @@ function App() {
           console.log('Real-time update:', payload);
           if (payload.new.status === 'completed') {
             setIsCharging(false);
+            setTimeRemaining(0);
           }
         }
       )
@@ -34,15 +37,34 @@ function App() {
     };
   }, [sessionId]);
 
+  useEffect(() => {
+    let interval: number;
+    if (isCharging) {
+      interval = setInterval(() => {
+        setTimeRemaining(prev => {
+          const newTime = prev > 0 ? prev - 1 : 0;
+          if (newTime === 0) {
+            clearInterval(interval);
+          }
+          return newTime;
+        });
+
+      }, 1000);
+    }
+
+    return () => clearInterval(interval);
+  }, [isCharging]);
+
   const startCharging = async () => {
     if (!phoneNumber || phoneNumber.length < 10) {
       alert('Please enter a valid phone number');
       return;
     }
 
-    const cost = duration * 2; // 2rs per minute
+    const cost = duration * 4; // 4rs per minute
     setCost(cost);
     setIsCharging(true);
+    setTimeRemaining(duration * 60);
 
     const { data, error } = await supabase
       .from('charging_sessions')
@@ -63,16 +85,25 @@ function App() {
     }
 
     setSessionId(data.id);
+  };
 
-    setTimeout(async () => {
+  const emergencyStop = async () => {
+    if (sessionId) {
       await supabase
         .from('charging_sessions')
         .update({ status: 'completed' })
-        .eq('id', data.id);
+        .eq('id', sessionId);
       
       setIsCharging(false);
       setSessionId(null);
-    }, duration * 60 * 1000);
+      setTimeRemaining(0);
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -84,6 +115,28 @@ function App() {
         </div>
 
         <div className="space-y-6">
+          {isCharging && (
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="flex items-center mb-2">
+                  <Clock className="w-5 h-5 text-blue-1000 mr-2" />
+                  <span className="text-sm font-medium">Time Remaining</span>
+                </div>
+                <p className="text-2xl font-bold text-blue-700">{formatTime(timeRemaining)}</p>
+              </div>
+
+              <div className="col-span-2">
+                <button
+                  onClick={emergencyStop}
+                  className="w-full py-3 px-6 rounded-lg bg-red-500 hover:bg-red-600 text-white font-semibold transition-all flex items-center justify-center"
+                >
+                  <AlertOctagon className="w-5 h-5 mr-2" />
+                  Emergency Stop
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="bg-gray-50 p-4 rounded-lg">
             <div className="flex items-center mb-2">
               <Phone className="w-5 h-5 text-blue-600 mr-2" />
@@ -120,31 +173,16 @@ function App() {
               <CreditCard className="w-5 h-5 text-blue-600 mr-2" />
               <span className="text-lg font-medium">Cost (₹{cost})</span>
             </div>
-            <p className="text-sm text-gray-600">Rate: ₹2 per minute</p>
+            <p className="text-sm text-gray-600">Rate: ₹4 per minute</p>
           </div>
 
-          <button
-            onClick={startCharging}
-            disabled={isCharging}
-            className={`w-full py-3 px-6 rounded-lg text-white font-semibold transition-all ${
-              isCharging
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-green-500 hover:bg-green-600'
-            }`}
-          >
-            {isCharging ? 'Charging in Progress...' : 'Start Charging'}
-          </button>
-
-          {isCharging && (
-            <div className="text-center">
-              <div className="animate-pulse flex items-center justify-center text-green-500">
-                <BatteryCharging className="w-6 h-6 mr-2" />
-                <span>Charging in progress...</span>
-              </div>
-              <p className="text-sm text-gray-600 mt-2">
-                Time remaining: {duration} minutes
-              </p>
-            </div>
+          {!isCharging && (
+            <button
+              onClick={startCharging}
+              className="w-full py-3 px-6 rounded-lg text-white font-semibold transition-all bg-green-500 hover:bg-green-600"
+            >
+              Start Charging
+            </button>
           )}
         </div>
       </div>
