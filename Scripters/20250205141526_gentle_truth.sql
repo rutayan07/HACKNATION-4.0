@@ -1,19 +1,3 @@
-/*
-  # Create EV Charging Sessions Table
-
-  1. New Tables
-    - `charging_sessions`
-      - `id` (uuid, primary key)
-      - `start_time` (timestamptz)
-      - `duration_minutes` (integer)
-      - `cost` (decimal)
-      - `status` (text) - 'active' or 'completed'
-      - `created_at` (timestamptz)
-
-  2. Security
-    - Enable RLS on `charging_sessions` table
-    - Add policy for public access (since ESP32 needs to read the data)
-*/
 
 CREATE TABLE IF NOT EXISTS charging_sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
